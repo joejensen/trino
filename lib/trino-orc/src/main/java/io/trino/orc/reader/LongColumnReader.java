@@ -187,7 +187,10 @@ public class LongColumnReader
             throws IOException
     {
         if (type instanceof BigintType) {
-            return longReadNullBlock(isNull, nonNullCount);
+            return longReadNullBlock(isNull, nonNullCount, false);
+        }
+        if (type instanceof TimeType) {
+            return longReadNullBlock(isNull, nonNullCount, true);
         }
         if (type instanceof IntegerType || type instanceof DateType) {
             return intReadNullBlock(isNull, nonNullCount);
@@ -198,7 +201,7 @@ public class LongColumnReader
         throw new VerifyError("Unsupported type " + type);
     }
 
-    private Block longReadNullBlock(boolean[] isNull, int nonNullCount)
+    private Block longReadNullBlock(boolean[] isNull, int nonNullCount, boolean maybeTransform)
             throws IOException
     {
         verifyNotNull(dataStream);
@@ -211,6 +214,10 @@ public class LongColumnReader
         dataStream.next(longNonNullValueTemp, nonNullCount);
 
         long[] result = unpackLongNulls(longNonNullValueTemp, isNull);
+
+        if (maybeTransform) {
+            maybeTransformValues(result, nextBatchSize);
+        }
 
         return new LongArrayBlock(nextBatchSize, Optional.of(isNull), result);
     }

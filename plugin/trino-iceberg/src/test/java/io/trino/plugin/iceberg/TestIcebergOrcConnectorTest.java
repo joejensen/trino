@@ -87,6 +87,23 @@ public class TestIcebergOrcConnectorTest
         }
     }
 
+    @Test
+    public void testTimeType()
+            throws Exception
+    {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_time", "(\"_col0\") AS VALUES " +
+                    "(TIME '10:03:34.123000'), (NULL), (NULL), (NULL), (TIME '10:03:34.123000'), (TIME '10:03:34.123000')")) {
+            Path orcFilePath = Path.of((String) computeScalar(format("SELECT DISTINCT file_path FROM \"%s$files\"", table.getName())));
+            Files.copy(new File(getResource("single-time-column.orc").toURI()).toPath(), orcFilePath, REPLACE_EXISTING);
+            Files.delete(orcFilePath.resolveSibling(format(".%s.crc", orcFilePath.getFileName())));
+
+            assertThat(query("DESCRIBE " + table.getName()))
+                    .projected(1)
+                    .matches("VALUES varchar 'time(6)'");
+            assertQuery("SELECT * FROM " + table.getName(), "VALUES '10:03:34.123000', NULL, NULL, NULL, '10:03:34.123000', '10:03:34.123000'");
+        }
+    }
+
     @Override
     public void testDropAmbiguousRowFieldCaseSensitivity()
     {
