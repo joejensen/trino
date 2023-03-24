@@ -16,19 +16,77 @@ package io.trino.orc.metadata.statistics;
 import io.trino.spi.block.Block;
 import io.trino.spi.type.Type;
 
+import java.util.Optional;
+
+import static io.trino.orc.metadata.statistics.IntegerStatistics.INTEGER_VALUE_BYTES;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
+import static java.lang.Math.addExact;
+import static java.util.Objects.requireNonNull;
 
 public class TimeStatisticsBuilder
-        extends IntegerStatisticsBuilder
+        implements LongValueStatisticsBuilder
 {
+    private long nonNullValueCount;
+    private long minimum = Long.MAX_VALUE;
+    private long maximum = Long.MIN_VALUE;
+    private long sum;
+    private boolean overflow;
+    private final BloomFilterBuilder bloomFilterBuilder;
+
     public TimeStatisticsBuilder(BloomFilterBuilder bloomFilterBuilder)
     {
-        super(bloomFilterBuilder);
+        this.bloomFilterBuilder = requireNonNull(bloomFilterBuilder, "bloomFilterBuilder is null");
     }
 
     @Override
     public long getValueFromBlock(Type type, Block block, int position)
     {
-        return super.getValueFromBlock(type, block, position) / PICOSECONDS_PER_MICROSECOND;
+        return type.getLong(block, position) / PICOSECONDS_PER_MICROSECOND;
+    }
+
+    @Override
+    public void addValue(long value)
+    {
+        nonNullValueCount++;
+
+        minimum = Math.min(value, minimum);
+        maximum = Math.max(value, maximum);
+
+        if (!overflow) {
+            try {
+                sum = addExact(sum, value);
+            }
+            catch (ArithmeticException e) {
+                overflow = true;
+            }
+        }
+        bloomFilterBuilder.addLong(value);
+    }
+
+    private Optional<IntegerStatistics> buildIntegerStatistics()
+    {
+        if (nonNullValueCount == 0) {
+            return Optional.empty();
+        }
+        return Optional.of(new IntegerStatistics(minimum, maximum, overflow ? null : sum));
+    }
+
+    @Override
+    public ColumnStatistics buildColumnStatistics()
+    {
+        Optional<IntegerStatistics> integerStatistics = buildIntegerStatistics();
+        return new ColumnStatistics(
+            nonNullValueCount,
+            integerStatistics.map(s -> INTEGER_VALUE_BYTES).orElse(0L),
+            null,
+            integerStatistics.orElse(null),
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            bloomFilterBuilder.buildBloomFilter());
     }
 }
