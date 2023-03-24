@@ -98,7 +98,7 @@ public class TestIcebergOrcConnectorTest
             Files.delete(orcFilePath.resolveSibling(format(".%s.crc", orcFilePath.getFileName())));
 
             assertThat(query("DESCRIBE " + table.getName()))
-                    .projected(1)
+                    .projected("Type")
                     .matches("VALUES varchar 'time(6)'");
             assertQuery("SELECT * FROM " + table.getName(), "VALUES '10:03:34.123000', NULL, NULL, NULL, '10:03:34.123000', '10:03:34.123000'");
         }
