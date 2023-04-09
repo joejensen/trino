@@ -87,6 +87,11 @@ public class HdfsConfigurationInitializer
         this.configurationInitializers = ImmutableSet.copyOf(requireNonNull(configurationInitializers, "configurationInitializers is null"));
     }
 
+    public Configuration initializeAndReturnConfiguration(Configuration config) {
+        initializeConfiguration( config );
+        return config;
+    }
+
     public void initializeConfiguration(Configuration config)
     {
         copy(resourcesConfiguration, config);

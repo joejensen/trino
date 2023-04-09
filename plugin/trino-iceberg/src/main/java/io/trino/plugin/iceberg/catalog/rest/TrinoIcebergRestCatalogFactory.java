@@ -14,7 +14,9 @@
 package io.trino.plugin.iceberg.catalog.rest;
 
 import com.google.common.collect.ImmutableMap;
+import io.trino.hdfs.ConfigurationInitializer;
 import io.trino.hdfs.ConfigurationUtils;
+import io.trino.hdfs.HdfsConfigurationInitializer;
 import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.hive.NodeVersion;
 import io.trino.plugin.iceberg.IcebergConfig;
@@ -30,6 +32,7 @@ import javax.inject.Inject;
 
 import java.net.URI;
 import java.util.Optional;
+import java.util.Set;
 
 import static java.util.Objects.requireNonNull;
 
@@ -43,6 +46,7 @@ public class TrinoIcebergRestCatalogFactory
     private final SessionType sessionType;
     private final SecurityProperties securityProperties;
     private final boolean uniqueTableLocation;
+    private final HdfsConfigurationInitializer configurationInitializer;
 
     @GuardedBy("this")
     private RESTSessionCatalog icebergCatalog;
@@ -53,6 +57,7 @@ public class TrinoIcebergRestCatalogFactory
             IcebergRestCatalogConfig restConfig,
             SecurityProperties securityProperties,
             IcebergConfig icebergConfig,
+            HdfsConfigurationInitializer configurationInitializer,
             NodeVersion nodeVersion)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
@@ -64,6 +69,7 @@ public class TrinoIcebergRestCatalogFactory
         this.securityProperties = requireNonNull(securityProperties, "securityProperties is null");
         requireNonNull(icebergConfig, "icebergConfig is null");
         this.uniqueTableLocation = icebergConfig.isUniqueTableLocation();
+        this.configurationInitializer = configurationInitializer;
     }
 
     @Override
@@ -78,7 +84,7 @@ public class TrinoIcebergRestCatalogFactory
             properties.put("trino-version", trinoVersion);
             properties.putAll(securityProperties.get());
             RESTSessionCatalog icebergCatalogInstance = new RESTSessionCatalog();
-            icebergCatalogInstance.setConf(ConfigurationUtils.getInitialConfiguration());
+            icebergCatalogInstance.setConf(configurationInitializer.initializeAndReturnConfiguration( ConfigurationUtils.getInitialConfiguration()));
             icebergCatalogInstance.initialize(catalogName.toString(), properties.buildOrThrow());
 
             icebergCatalog = icebergCatalogInstance;
